@@ -205,7 +205,7 @@ int main(void)
 	op.params[0].value.a = 100000;   //传入参数设置范围，计算1~100000之间的素数
 	
 	/*
-	 * TA_HELLO_WORLD_CMD_VALUE 是TA中的实际调用函数。
+	 * TA_HELLO_WORLD_CMD_VALUE 是TA中的实际调用函数标志。
 	 */
 
 	gettimeofday( &start, NULL );  //记录REE切换至TEE时的时间
