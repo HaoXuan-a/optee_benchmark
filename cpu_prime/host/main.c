@@ -202,20 +202,18 @@ int main(void)
 	 */
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INOUT, TEEC_NONE,
 					 TEEC_NONE, TEEC_NONE);
-	op.params[0].value.a = 100000;   //传入参数设置范围，计算1~100000之间的素数
+	op.params[0].value.a = 100000;   //传入参数设置范围为100000
 	
 	/*
-	 * TA_HELLO_WORLD_CMD_VALUE 是TA中的实际调用函数标志。
+	 * TA_CPU_PRIME_CMD_VALUE 是TA中的实际调用函数标志。
 	 */
 
 	gettimeofday( &start, NULL );  //记录REE切换至TEE时的时间
-	res = TEEC_InvokeCommand(&sess, TA_CPU_PRIME_CMD_VALUE, &op,
-				 &err_origin);
+	res = TEEC_InvokeCommand(&sess, TA_CPU_PRIME_CMD_VALUE, &op, &err_origin); //将参数值传递给cpu_prime_ta.c中TTA_CPU_PRIME_CMD_VALUE对应的函数中
 
 	printf("TEEC_InvokeCommand ok~~~\n");
 	if (res != TEEC_SUCCESS)
-		errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
-			res, err_origin);
+		errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",res, err_origin);
 
 	gettimeofday( &end, NULL );//TA执行结束后，记录TEE切换至REE时的时间
 	int time_us = 1000000 * ( end.tv_sec - start.tv_sec ) + end.tv_usec - start.tv_usec; //计算时间精确到微秒
