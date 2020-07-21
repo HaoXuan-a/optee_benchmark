@@ -1,34 +1,3 @@
-/*
- * Copyright (c) 2017, Linaro Limited
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
-
-
-
-该程序测量文件指定大小为32768字节，并进行读、写、复制，计算所需时间（上下文切换时间）及CPU、RAM、disk使用率
- */
-
 #include <err.h>
 #include <stdio.h>
 #include <string.h>
@@ -44,7 +13,7 @@ struct test_ctx {
 	TEEC_Context ctx;
 	TEEC_Session sess;
 };
-
+/*获取自系统的启动开始累计到调用该函数时刻CPU总使用时间*/
 int * getCPUusage(){
 	FILE *fp = NULL;
 	
@@ -90,7 +59,7 @@ int * getCPUusage(){
 
 	return time;
 }
-
+/*根据获取cpu使用时间计算cpu利用率*/
 float calUsage(int * time1,int * time2){	
 	int deltaUsed = *(time2 + 0) - *(time1 + 0) + *(time2 + 1) - *(time1 + 1);
         int deltaTotal = deltaUsed + *(time2 + 2) - *(time1 + 2);
@@ -99,6 +68,7 @@ float calUsage(int * time1,int * time2){
 	return usage;
 
 }
+/*获取RAM使用情况*/
 void getRAM(){
 	char buff[80];
 	FILE *fp=popen("free", "r");
@@ -140,7 +110,7 @@ void getRAM(){
 	printf("RAM free is %.2f MB\n",free / 1024.0d);
 }
 
-
+/*获取磁盘使用率*/
 void getDisk(){
 	char buff[80];
 	FILE *fp=popen("df -h", "r");
@@ -186,32 +156,32 @@ void getDisk(){
 	
 }
 
+/*与TA会话准备部分操作，包括完成上下文初始化以及打开会话*/
 void prepare_tee_session(struct test_ctx *ctx){
 	TEEC_UUID uuid = TA_MY_FILE_UUID;
 	uint32_t origin;
 	TEEC_Result res;
 
-	/* Initialize a context connecting us to the TEE */
+	/* 初始化连接到TEE的上下文 */
 	res = TEEC_InitializeContext(NULL, &ctx->ctx);
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_InitializeContext failed with code 0x%x", res);
 
-	/* Open a session with the TA */
+	/* 打开与TA的会话 */
 	res = TEEC_OpenSession(&ctx->ctx, &ctx->sess, &uuid,
 			       TEEC_LOGIN_PUBLIC, NULL, NULL, &origin);
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_Opensession failed with code 0x%x origin 0x%x",
 			res, origin);
 }
-
+/*会话结束后操作，包括关闭会话并结束上下文。*/
 void terminate_tee_session(struct test_ctx *ctx){
 	TEEC_CloseSession(&ctx->sess);
 	TEEC_FinalizeContext(&ctx->ctx);
 }
 
-TEEC_Result read_secure_object(struct test_ctx *ctx, char *id,
-			char *data, size_t data_len)
-{//读文件
+/*读取指定id的文件*/
+TEEC_Result read_secure_object(struct test_ctx *ctx, char *id,char *data, size_t data_len){
 	TEEC_Operation op;
 	uint32_t origin;
 	TEEC_Result res;
@@ -243,9 +213,8 @@ TEEC_Result read_secure_object(struct test_ctx *ctx, char *id,
 	return res;
 }
 
-TEEC_Result write_secure_object(struct test_ctx *ctx, char *id,
-			char *data, size_t data_len)
-{//创建文件并写入
+/*向指定id文件写入数据data*/
+TEEC_Result write_secure_object(struct test_ctx *ctx, char *id,char *data, size_t data_len){
 	TEEC_Operation op;
 	uint32_t origin;
 	TEEC_Result res;
@@ -278,8 +247,8 @@ TEEC_Result write_secure_object(struct test_ctx *ctx, char *id,
 	return res;
 }
 
-TEEC_Result delete_secure_object(struct test_ctx *ctx, char *id)
-{//删除文件
+/*删除参数id对应的文件*/
+TEEC_Result delete_secure_object(struct test_ctx *ctx, char *id){
 	TEEC_Operation op;
 	uint32_t origin;
 	TEEC_Result res;
@@ -309,16 +278,19 @@ TEEC_Result delete_secure_object(struct test_ctx *ctx, char *id)
 
 #define TEST_OBJECT_SIZE	32768   //设置文件大小为32768字节
 
-int main(void)
-{
+int main(void){
 	struct test_ctx ctx;
 	char obj1_id[] = "object#first";		//设置文件标识id
 	char obj2_id[] = "object#second";		
 	char obj1_data[TEST_OBJECT_SIZE];	//设置写入文件时缓冲区大小
 	char read_data[TEST_OBJECT_SIZE];	//设置读文件时缓冲区大小
 	TEEC_Result res;
-
-	struct timeval start_c,start_r,start_d,end_c,end_r,end_d,start,end; //定义创建、读取、删除文件1三种操作的时间以及对文件2的操作时间 
+	/*
+	*start_c,start_r,start_d,end_c,end_r,end_d定义创建、读取、删除文件object#first三种操作的时间
+	*start,end为对object#first文件创建或删除操作的时间
+	*/
+	
+	struct timeval start_c,start_r,start_d,end_c,end_r,end_d,start,end;  
 	int * time1;
 	int * time2;
 	time1 = getCPUusage();	
@@ -327,7 +299,7 @@ int main(void)
 	prepare_tee_session(&ctx);
 
 	/*
-	 * Create object, read it, delete it.
+	 * 对object#first文件的三种操作：创建、读取、删除
 	 */
 	printf("\nTest on object \"%s\"\n", obj1_id);
 
@@ -376,7 +348,7 @@ int main(void)
 	float timeuse_d = time_us_d * 0.000001;
 	printf("-----------------------------time_delete: %.4f s\n",timeuse_d);
 	/*
-	 * Non volatile storage: create object2 if not found, delete it if found
+	 * 非易失性存储：如果找不到，则创建object#second，如果找到，则将其删除
 	 */
 	printf("\nTest on object \"%s\"\n", obj2_id);
 	gettimeofday( &start, NULL );
