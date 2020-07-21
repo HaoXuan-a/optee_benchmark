@@ -197,10 +197,12 @@ TEEC_Result read_secure_object(struct test_ctx *ctx, char *id,char *data, size_t
 
 	op.params[1].tmpref.buffer = data;
 	op.params[1].tmpref.size = data_len;
-
-	res = TEEC_InvokeCommand(&ctx->sess,
-				 TA_MY_FILE_CMD_READ_RAW,
-				 &op, &origin);
+	
+	/*
+	*通过op获取参数后调用TA中TA_MY_FILE_CMD_READ_RAW对应的读文件函数
+	*/
+	res = TEEC_InvokeCommand(&ctx->sess,TA_MY_FILE_CMD_READ_RAW, &op, &origin);
+	/*判断读操作是否成功*/
 	switch (res) {
 	case TEEC_SUCCESS:
 	case TEEC_ERROR_SHORT_BUFFER:
@@ -230,13 +232,13 @@ TEEC_Result write_secure_object(struct test_ctx *ctx, char *id,char *data, size_
 
 	op.params[1].tmpref.buffer = data;
 	op.params[1].tmpref.size = data_len;
-
-	res = TEEC_InvokeCommand(&ctx->sess,
-				 TA_MY_FILE_CMD_WRITE_RAW,
-				 &op, &origin);
+	/*
+	*通过op获取参数后调用TA中TA_MY_FILE_CMD_WRITE_RAW对应的写文件函数
+	*/
+	res = TEEC_InvokeCommand(&ctx->sess,TA_MY_FILE_CMD_WRITE_RAW, &op, &origin);
 	if (res != TEEC_SUCCESS)
 		printf("Command WRITE_RAW failed: 0x%x / %u\n", res, origin);
-
+	/*判断写操作是否成功*/	
 	switch (res) {
 	case TEEC_SUCCESS:
 		break;
@@ -260,11 +262,11 @@ TEEC_Result delete_secure_object(struct test_ctx *ctx, char *id){
 
 	op.params[0].tmpref.buffer = id;
 	op.params[0].tmpref.size = id_len;
-
-	res = TEEC_InvokeCommand(&ctx->sess,
-				 TA_MY_FILE_CMD_DELETE,
-				 &op, &origin);
-
+	/*
+	*通过op获取参数后调用TA中TA_MY_FILE_CMD_DELETE对应的删除文件函数
+	*/
+	res = TEEC_InvokeCommand(&ctx->sess,TA_MY_FILE_CMD_DELETE, &op, &origin);
+	/*判断删除操作是否成功*/
 	switch (res) {
 	case TEEC_SUCCESS:
 	case TEEC_ERROR_ITEM_NOT_FOUND:
@@ -291,7 +293,7 @@ int main(void){
 	*/
 	
 	struct timeval start_c,start_r,start_d,end_c,end_r,end_d,start,end;  
-	int * time1;
+	int * time1;//time1，time2记录自系统的启动开始累计到当前时刻CPU总使用时间，为了测量CPU利用率
 	int * time2;
 	time1 = getCPUusage();	
 
@@ -353,22 +355,23 @@ int main(void){
 	printf("\nTest on object \"%s\"\n", obj2_id);
 	gettimeofday( &start, NULL );
 	//读取object#second文件，若文件不存在则创建该文件；否则删除该文件
-	res = read_secure_object(&ctx, obj2_id,
-				  read_data, sizeof(read_data));
+	res = read_secure_object(&ctx, obj2_id, read_data, sizeof(read_data));
+	
 	if (res != TEEC_SUCCESS && res != TEEC_ERROR_ITEM_NOT_FOUND)
 		errx(1, "Unexpected status when reading an object : 0x%x", res);
 
+	/*文件不存在，创建该文件*/
 	if (res == TEEC_ERROR_ITEM_NOT_FOUND) {
 		char data[] = "This is data stored in the secure storage.\n";
 
 		printf("- Object not found in TA secure storage, create it.\n");
 
-		res = write_secure_object(&ctx, obj2_id,
-					  data, sizeof(data));
+		res = write_secure_object(&ctx, obj2_id, data, sizeof(data));
 		if (res != TEEC_SUCCESS)
 			errx(1, "Failed to create/load an object");
 
 	} else if (res == TEEC_SUCCESS) {
+		/*文件存在，则删除该文件*/
 		printf("- Object found in TA secure storage, delete it.\n");
 
 		res = delete_secure_object(&ctx, obj2_id);
