@@ -1,32 +1,3 @@
-/*
- * Copyright (c) 2016, Linaro Limited
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
-
-该程序测量两个进程交换不断减小的整数10次，计算所需时间（上下文切换时间）及CPU、RAM、disk使用率
- */
-
 #include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,6 +12,7 @@
 /* To the the UUID (found the the TA's h-file(s)) */
 #include <my_context_ta.h>
 
+/*获取自系统的启动开始累计到调用该函数时刻CPU总使用时间*/
 int * getCPUusage(){
 	FILE *fp = NULL;
 	
@@ -86,7 +58,7 @@ int * getCPUusage(){
 
 	return time;
 }
-
+/*根据获取的cpu使用时间计算cpu利用率*/
 float calUsage(int * time1,int * time2){	
 	int deltaUsed = *(time2 + 0) - *(time1 + 0) + *(time2 + 1) - *(time1 + 1);
         int deltaTotal = deltaUsed + *(time2 + 2) - *(time1 + 2);
@@ -95,6 +67,7 @@ float calUsage(int * time1,int * time2){
 	return usage;
 
 }
+/*获取RAM使用情况*/
 void getRAM(){
 	char buff[80];
 	FILE *fp=popen("free", "r");
@@ -137,6 +110,7 @@ void getRAM(){
 }
 
 
+/*获取磁盘使用率*/
 void getDisk(){
 	char buff[80];
 	FILE *fp=popen("df -h", "r");
@@ -193,14 +167,14 @@ int main(){
 
 	unsigned long check;
 	int p1[2], p2[2];
-	unsigned long iter = 10;
-
+	unsigned long iter = 10;  //设置进程执行次数
+	/*创建子进程*/
 	if (pipe(p1) || pipe(p2)) {
 		perror("pipe create failed");
 		exit(1);
 	}
 	gettimeofday( &start, NULL );
-	pid = fork();//创建子进程
+	pid = fork();//获取子进程id
 	if (pid == -1){
 		printf("Fork error \n");
 	}else if (pid == 0) {
@@ -264,7 +238,6 @@ int main(){
 	int time_us = 1000000 * ( end.tv_sec - start.tv_sec ) + end.tv_usec - start.tv_usec; 
 	printf("===========================time: %d us\n",time_us);
 	timeuse = time_us * 0.000001;
-//	printf("TA incremented value to %d\n", op.params[0].value.a);
 
 	printf("-----------------------------time: %.4f s\n",timeuse) ;
 
@@ -294,8 +267,7 @@ int my_fork(int iter){
 	printf("TEEC_InitializeContext ok~~~\n");
 
 	/*
-	 * Open a session to the "hello world" TA, the TA will print "hello
-	 * world!" in the log when the session is created.
+	 打开一个会话到“ my_context” TA，会话创建成功会输出TEEC_OpenSession return ok~~~ 
 	 */
 	res = TEEC_OpenSession(&ctx, &sess, &uuid,
 			       TEEC_LOGIN_PUBLIC, NULL, NULL, &err_origin);
@@ -306,14 +278,12 @@ int my_fork(int iter){
 			res, err_origin);
 	printf("TEEC_OpenSession return ok~~~\n");
 	/*
-	 * Execute a function in the TA by invoking it, in this case
-	 * we're incrementing a number.
-	 *
-	 * The value of command ID part and how the parameters are
-	 * interpreted is part of the interface provided by the TA.
+	*在这种情况下，通过调用TA,执行TA中函数，实现参数减小一个数字
+	*
+	*命令ID部分的值以及参数如何*解释是TA提供的接口的一部分。
 	 */
 
-	/* Clear the TEEC_Operation struct */
+	/* 清除TEEC_Operation结构*/
 	memset(&op, 0, sizeof(op));
 	//printf("my context for 500:  \n");
 
@@ -323,14 +293,12 @@ int my_fork(int iter){
 	 */
 	op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INOUT, TEEC_NONE,
 					 TEEC_NONE, TEEC_NONE);
-	op.params[0].value.a = iter;//获取参数iter的值
+	op.params[0].value.a = iter;//op获取参数iter的值
 	
 	/*
-	 * TA_MY_CONTEXT_CMD is the actual function in the TA to be
-	 * called.
+	 * TA_MY_CONTEXT_CMD 是TA中的实际调用函数标志。
 	 */
-	res = TEEC_InvokeCommand(&sess, TA_MY_CONTEXT_CMD, &op,
-				 &err_origin);
+	res = TEEC_InvokeCommand(&sess, TA_MY_CONTEXT_CMD, &op, &err_origin);//将参数值传递给my_context_ta.c中TA_MY_CONTEXT_CMD对应的函数中
   
 	printf("TEEC_InvokeCommand ok~~~\n");
 	if (res != TEEC_SUCCESS)
@@ -338,11 +306,7 @@ int my_fork(int iter){
 			res, err_origin);
 	printf("Invoking TA to descrement %d\n", op.params[0].value.a);
 	/*
-	 * We're done with the TA, close the session and
-	 * destroy the context.
-	 *
-	 * The TA will print "Goodbye!" in the log when the
-	 * session is closed.
+	 * 完成了TA调用，关闭会话并结束上下文。
 	 */
 
 	TEEC_CloseSession(&sess);
