@@ -156,7 +156,7 @@ void getDisk(){
 	
 }
 
-/*与TA会话准备部分操作，包括完成上下文初始化以及打开会话*/
+/*与TA交互前准备部分操作，包括完成上下文初始化以及打开会话*/
 void prepare_tee_session(struct test_ctx *ctx){
 	TEEC_UUID uuid = TA_MY_FILE_UUID;
 	uint32_t origin;
@@ -174,8 +174,9 @@ void prepare_tee_session(struct test_ctx *ctx){
 		errx(1, "TEEC_Opensession failed with code 0x%x origin 0x%x",
 			res, origin);
 }
-/*会话结束后操作，包括关闭会话并结束上下文。*/
+/*与TA交互结束后的操作，包括关闭会话并结束上下文。*/
 void terminate_tee_session(struct test_ctx *ctx){
+	
 	TEEC_CloseSession(&ctx->sess);
 	TEEC_FinalizeContext(&ctx->ctx);
 }
