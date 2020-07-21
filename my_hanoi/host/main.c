@@ -215,10 +215,9 @@ int main(void){
 
 
 	/*
-	 *完成与TA通信后，结束了会话并破坏上下文。
+	 *完成与TA交互后，关闭会话并结束上下文。
 	 *
-	 *会话关闭后，TA将在日志中打印“goodbye！” 
-	 *
+	 *当会话关闭后，TA会在日志中打印"Goodbye!" 
 	 */
 
 	TEEC_CloseSession(&sess);
