@@ -314,7 +314,7 @@ int main(void)
 	struct test_ctx ctx;
 	char obj1_id[] = "object#first";		//设置文件标识id
 	char obj2_id[] = "object#second";		
-	char obj1_data[TEST_OBJECT_SIZE];	//设置文件1大小
+	char obj1_data[TEST_OBJECT_SIZE];	//设置写入文件时缓冲区大小
 	char read_data[TEST_OBJECT_SIZE];	//设置读文件时缓冲区大小
 	TEEC_Result res;
 
@@ -334,10 +334,10 @@ int main(void)
 	gettimeofday( &start_c, NULL );
 	printf("- Create and load object in the TA secure storage\n");
 
-	memset(obj1_data, 0xA1, sizeof(obj1_data));//将obj1_data中的内容全部设置为0xA1
+	memset(obj1_data, 0xA1, sizeof(obj1_data));//obj1_data数组初始化
 
 	res = write_secure_object(&ctx, obj1_id,
-				  obj1_data, sizeof(obj1_data));//向object#first写入数据
+				  obj1_data, sizeof(obj1_data));//向object#first写入obj1_data的内容
 	if (res != TEEC_SUCCESS)
 		errx(1, "Failed to create an object in the secure storage");
 
