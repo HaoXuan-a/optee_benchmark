@@ -1,32 +1,3 @@
-/*
- * Copyright (c) 2016, Linaro Limited
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- *
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright notice,
- * this list of conditions and the following disclaimer in the documentation
- * and/or other materials provided with the distribution.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
-
-该程序测试随机生成两个长度为2048字节的字符串，进行逆置、比较、拼接、拷贝操作，并循环执行10次所需时间（上下文切换时间）及CPU、RAM、disk使用率
- */
-
 #include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,7 +9,7 @@
 
 /* To the the UUID (found the the TA's h-file(s)) */
 #include <my_stringHandling_ta.h>
-
+/*获取自系统的启动开始累计到调用该函数时刻CPU总使用时间*/
 int * getCPUusage(){
 	FILE *fp = NULL;
 	
@@ -84,7 +55,7 @@ int * getCPUusage(){
 
 	return time;
 }
-
+/*根据获取cpu使用时间计算cpu利用率*/
 float calUsage(int * time1,int * time2){	
 	int deltaUsed = *(time2 + 0) - *(time1 + 0) + *(time2 + 1) - *(time1 + 1);
         int deltaTotal = deltaUsed + *(time2 + 2) - *(time1 + 2);
@@ -93,6 +64,8 @@ float calUsage(int * time1,int * time2){
 	return usage;
 
 }
+
+/*获取RAM使用情况*/
 void getRAM(){
 	char buff[80];
 	FILE *fp=popen("free", "r");
@@ -134,7 +107,7 @@ void getRAM(){
 	printf("RAM free is %.2f MB\n",free / 1024.0d);
 }
 
-
+/*获取磁盘使用率*/
 void getDisk(){
 	char buff[80];
 	FILE *fp=popen("df -h", "r");
@@ -179,8 +152,8 @@ void getDisk(){
 	printf("\n");
 	
 }
-int main(void)
-{
+
+int main(void){
 	TEEC_Result res;
 	TEEC_Context ctx;
 	TEEC_Session sess;
@@ -188,23 +161,21 @@ int main(void)
 	TEEC_UUID uuid = TA_MY_STRINGHANDLING_UUID;
 	uint32_t err_origin;
 
-    	struct timeval start, end;	
-	int * time1;
+    	struct timeval start, end;	//测量调用TA程序运行时间
+	int * time1;  //time1，time2记录自系统的启动开始累计到当前时刻CPU总使用时间，为了测量CPU利用率
 	int * time2;
 	time1 = getCPUusage();	
 
-	/* Initialize a context connecting us to the TEE */
+	/* 初始化连接到TEE的上下文  */
 	res = TEEC_InitializeContext(NULL, &ctx);
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_InitializeContext failed with code 0x%x", res);
 	printf("TEEC_InitializeContext ok~~~\n");
 
 	/*
-	 * Open a session to the "hello world" TA, the TA will print "hello
-	 * world!" in the log when the session is created.
+	 *打开一个会话到my_stringHandling_ta，会话创建成功会输出TEEC_OpenSession return ok~~~ 
 	 */
-	res = TEEC_OpenSession(&ctx, &sess, &uuid,
-			       TEEC_LOGIN_PUBLIC, NULL, NULL, &err_origin);
+	res = TEEC_OpenSession(&ctx, &sess, &uuid,TEEC_LOGIN_PUBLIC, NULL, NULL, &err_origin);
 	
 	printf("TEEC_OpenSession ok~~~~\n");
 	if (res != TEEC_SUCCESS)
@@ -212,53 +183,42 @@ int main(void)
 			res, err_origin);
 	printf("TEEC_OpenSession return ok~~~\n");
 	/*
-	 * Execute a function in the TA by invoking it, in this case
-	 * we're incrementing a number.
-	 *
-	 * The value of command ID part and how the parameters are
-	 * interpreted is part of the interface provided by the TA.
+	 *通过调用TA，执行TA中对字符串操作功能。
+	 *命令ID部分的值以及如何解释参数是TA提供的接口的一部分。
 	 */
 
-	/* Clear the TEEC_Operation struct */
+	/* 清除TEEC_Operation结构*/
 	memset(&op, 0, sizeof(op));
 
 	/*
-	 * Prepare the argument. Pass a value in the first parameter,
-	 * the remaining three parameters are unused.
+	 *准备参数。 在第一个参数中传递值，其余三个参数未使用。
 	 */
-	op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INOUT, TEEC_NONE,
-					 TEEC_NONE, TEEC_NONE);
+	op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INOUT, TEEC_NONE,TEEC_NONE, TEEC_NONE);
 	op.params[0].value.a = 10;//指定TA程序循环次数
 
 	
 	/*
-	 * TA_MY_STRINGHANDLING_CMD is the actual function in the TA to be
-	 * called.
+	 * TA_MY_STRINGHANDLING_CMD 是TA中实际所调用函数对应的标识。
 	 */
 
-	gettimeofday( &start, NULL );
-	res = TEEC_InvokeCommand(&sess, TA_MY_STRINGHANDLING_CMD, &op,
-				 &err_origin);
+	gettimeofday( &start, NULL );//记录REE切换至TEE时的时间
+	res = TEEC_InvokeCommand(&sess, TA_MY_STRINGHANDLING_CMD, &op,&err_origin);//通过op向TA中传入指定参数
 
 	printf("TEEC_InvokeCommand ok~~~\n");
 	if (res != TEEC_SUCCESS)
-		errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
-			res, err_origin);
+		errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",res, err_origin);
 
-	gettimeofday( &end, NULL );
+	gettimeofday( &end, NULL );//记录TEE切换至REE时的时间
 	int time_us = 1000000 * ( end.tv_sec - start.tv_sec ) + end.tv_usec - start.tv_usec; 
 	printf("===========================time: %d us\n",time_us);
 	float timeuse = time_us * 0.000001;
-//	printf("TA incremented value to %d\n", op.params[0].value.a);
 
 	printf("-----------------------------time: %.4f s\n",timeuse) ;
 
 	/*
-	 * We're done with the TA, close the session and
-	 * destroy the context.
+	 *完成与TA交互后，关闭了会话并破坏上下文。
 	 *
-	 * The TA will print "Goodbye!" in the log when the
-	 * session is closed.
+	 * 会话关闭后，TA将在日志中打印“goodbye” 
 	 */
 
 	TEEC_CloseSession(&sess);
