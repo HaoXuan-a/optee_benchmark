@@ -306,7 +306,9 @@ int my_fork(int iter){
 			res, err_origin);
 	printf("Invoking TA to descrement %d\n", op.params[0].value.a);
 	/*
-	 * 完成了TA调用，关闭会话并结束上下文。
+	 *完成与TA交互后，关闭会话并结束上下文。
+	 *
+	 *当会话关闭后，TA会在日志中打印"Goodbye!" 
 	 */
 
 	TEEC_CloseSession(&sess);
