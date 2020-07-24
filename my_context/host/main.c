@@ -257,9 +257,6 @@ int my_fork(int iter){
 	TEEC_UUID uuid = TA_MY_CONTEXT_UUID;
 	uint32_t err_origin;
 
-    	struct timeval start, end;	
-
-
 	/* Initialize a context connecting us to the TEE */
 	res = TEEC_InitializeContext(NULL, &ctx);
 	if (res != TEEC_SUCCESS)
